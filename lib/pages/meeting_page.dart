@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc_wrapper/flutter_webrtc_wrapper.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:videocallwebrtc/models/meeting_details.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -30,10 +33,31 @@ class MeetingPage extends StatefulWidget {
 class _MeetingPageState extends State<MeetingPage> {
   final _localRenderer = RTCVideoRenderer();
   //this is local person video view
-  final Map<String, dynamic> mediaConstraints = {"audio": true, "video": true};
+  MediaStream? localStream;
+  final Map<String, dynamic> mediaConstraints = {
+    "audio": true,
+    "video": true
+  }; //'video':{'facingMode':'user'} or
+  //'video': {
+  //   'mandatory': {
+  //     'minWidth':
+  //         '640', // Provide your own width, height and frame rate here
+  //     'minHeight': '480',
+  //     'minFrameRate': '30',
+  //   },
+  //   'facingMode': 'user',
+  //   'optional': [],
+  // }
   bool isConnectionFailed = false;
+  //start
+  MediaRecorder? _mediaRecorder;
+  bool get _isRec => _mediaRecorder != null;
   WebRTCMeetingHelper? meetingHelper;
+  bool _inCalling = false;
+  bool _isTorchOn = false;
 
+  List<MediaDeviceInfo>? _mediaDevicesList;
+  //end
   void startMeeting() async {
     final String userId = await loadUserId(); //TODO CHANGE FOR FIRESTORE
     meetingHelper = WebRTCMeetingHelper(
@@ -43,8 +67,9 @@ class _MeetingPageState extends State<MeetingPage> {
       userId: userId,
       name: widget.name,
     );
-    MediaStream localStream =
-        await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    localStream = await navigator.mediaDevices
+        .getUserMedia(mediaConstraints); //stream is localStream
+    _mediaDevicesList = await navigator.mediaDevices.enumerateDevices();
     _localRenderer.srcObject = localStream;
     meetingHelper!.stream = localStream;
     meetingHelper!.on(
@@ -148,6 +173,63 @@ class _MeetingPageState extends State<MeetingPage> {
     }
   }
 
+  void _startRecording() async {
+    String? timeFile = DateTime.now().toString();
+    if (localStream == null) throw Exception('Stream is not initialized');
+    if (Platform.isIOS) {
+      print('Recording is not available on iOS');
+      return;
+    }
+    // TODO(rostopira): request write storage permission
+    final storagePath = await getExternalStorageDirectory();
+    if (storagePath == null) throw Exception('Can\'t find storagePath');
+
+    final filePath = storagePath.path + '/AntinnaRecording/${timeFile}.mp4';
+    _mediaRecorder = MediaRecorder();
+    setState(() {});
+
+    final videoTrack = localStream!
+        .getVideoTracks()
+        .firstWhere((track) => track.kind == 'video');
+    await _mediaRecorder!.start(
+      filePath,
+      videoTrack: videoTrack,
+    );
+  }
+
+  void _stopRecording() async {
+    await _mediaRecorder?.stop();
+    setState(() {
+      _mediaRecorder = null;
+    });
+  }
+
+  void _toggleTorch() async {
+    if (localStream == null) throw Exception('Stream is not initialized');
+
+    final videoTrack = localStream!
+        .getVideoTracks()
+        .firstWhere((track) => track.kind == 'video');
+    final has = await videoTrack.hasTorch();
+    if (has) {
+      print('[TORCH] Current camera supports torch mode');
+      setState(() => _isTorchOn = !_isTorchOn);
+      await videoTrack.setTorch(_isTorchOn);
+      print('[TORCH] Torch state is now ${_isTorchOn ? 'on' : 'off'}');
+    } else {
+      print('[TORCH] Current camera does not support torch mode');
+    }
+  }
+
+  void _toggleCamera() async {
+    if (localStream == null) throw Exception('Stream is not initialized');
+
+    final videoTrack = localStream!
+        .getVideoTracks()
+        .firstWhere((track) => track.kind == 'video');
+    await Helper.switchCamera(videoTrack);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,6 +244,22 @@ class _MeetingPageState extends State<MeetingPage> {
         onReconnect: handleReconnect,
         onMeetingEnd: onMeetingEnd,
       ),
+//  PopupMenuButton<String>(
+//                   onSelected: _selectAudioOutput,
+//                   itemBuilder: (BuildContext context) {
+//                     if (_mediaDevicesList != null) {
+//                       return _mediaDevicesList!
+//                           .where((device) => device.kind == 'audiooutput')
+//                           .map((device) {
+//                         return PopupMenuItem<String>(
+//                           value: device.deviceId,
+//                           child: Text(device.label),
+//                         );
+//                       }).toList();
+//                     }
+//                     return [];
+//                   },
+//                 ),
     );
   }
 
@@ -235,5 +333,9 @@ class _MeetingPageState extends State<MeetingPage> {
         )
       ],
     );
+  }
+
+  void _selectAudioOutput(String deviceId) {
+    _localRenderer.audioOutput(deviceId);
   }
 }
