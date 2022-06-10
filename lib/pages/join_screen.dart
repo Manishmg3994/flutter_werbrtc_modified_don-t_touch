@@ -64,13 +64,15 @@ class _JoinScreenState extends State<JoinScreen> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               Flexible(
                   child: FormHelper.submitButton("Join Meeting", () async {
-                if (widget.isHost!) {
+                if (widget.isHost! && validateAndSave()) {
                   var response = await startMeeting(hostName: userName);
                   final body = json.decode(response!.body);
                   final meetId = body["data"];
                   validateMeeting(meetId);
                 } else {
-                  goToMeetingScreen(widget.meetingDetails);
+                  if (validateAndSave()) {
+                    goToMeetingScreen(widget.meetingDetails);
+                  }
                 }
               })),
             ])
