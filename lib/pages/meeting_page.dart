@@ -222,17 +222,35 @@ class _MeetingPageState extends State<MeetingPage> {
   }
 
   void _toggleCamera() async {
-    if (localStream == null) throw Exception('Stream is not initialized');
+    try {
+      if (localStream == null) throw Exception('Stream is not initialized');
 
-    final videoTrack = localStream!
-        .getVideoTracks()
-        .firstWhere((track) => track.kind == 'video');
-    await Helper.switchCamera(videoTrack);
+      final videoTrack = localStream!
+          .getVideoTracks()
+          .firstWhere((track) => track.kind == 'video');
+      await Helper.switchCamera(videoTrack);
+    } catch (error) {}
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomSheet: PopupMenuButton<String>(
+        onSelected: _selectAudioOutput,
+        itemBuilder: (BuildContext context) {
+          if (_mediaDevicesList != null) {
+            return _mediaDevicesList!
+                .where((device) => device.kind == 'audiooutput')
+                .map((device) {
+              return PopupMenuItem<String>(
+                value: device.deviceId,
+                child: Text(device.label),
+              );
+            }).toList();
+          }
+          return [];
+        },
+      ),
       backgroundColor: Colors.black87,
       body: _buildMeetingRoom(),
       bottomNavigationBar: ControlPanel(
@@ -243,23 +261,8 @@ class _MeetingPageState extends State<MeetingPage> {
         isConnectionFailed: isConnectionFailed,
         onReconnect: handleReconnect,
         onMeetingEnd: onMeetingEnd,
+        onCameraToggle: _toggleCamera,
       ),
-//  PopupMenuButton<String>(
-//                   onSelected: _selectAudioOutput,
-//                   itemBuilder: (BuildContext context) {
-//                     if (_mediaDevicesList != null) {
-//                       return _mediaDevicesList!
-//                           .where((device) => device.kind == 'audiooutput')
-//                           .map((device) {
-//                         return PopupMenuItem<String>(
-//                           value: device.deviceId,
-//                           child: Text(device.label),
-//                         );
-//                       }).toList();
-//                     }
-//                     return [];
-//                   },
-//                 ),
     );
   }
 
@@ -330,7 +333,7 @@ class _MeetingPageState extends State<MeetingPage> {
           right: 0,
           child: SizedBox(
               width: 150, height: 200, child: RTCVideoView(_localRenderer)),
-        )
+        ),
       ],
     );
   }

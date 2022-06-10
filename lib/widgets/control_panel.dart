@@ -8,7 +8,8 @@ class ControlPanel extends StatelessWidget {
   final VoidCallback? onVideoToggle;
   final VoidCallback? onAudioToggle;
   final VoidCallback? onReconnect;
-  final VoidCallback? onMeetingEnd;
+  final VoidCallback? onMeetingEnd; //_toggleCamera
+  final VoidCallback? onCameraToggle;
 
   const ControlPanel(
       {Key? key,
@@ -18,7 +19,8 @@ class ControlPanel extends StatelessWidget {
       this.onVideoToggle,
       this.onAudioToggle,
       this.onReconnect,
-      this.onMeetingEnd})
+      this.onMeetingEnd,
+      this.onCameraToggle})
       : super(key: key);
 
   @override
@@ -26,8 +28,10 @@ class ControlPanel extends StatelessWidget {
     return Container(
       color: Colors.blueGrey[900],
       height: 60,
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: buildControls(),),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: buildControls(),
+      ),
     );
   }
 
@@ -43,6 +47,12 @@ class ControlPanel extends StatelessWidget {
         IconButton(
           onPressed: onAudioToggle,
           icon: Icon(audioEnabled! ? Icons.mic : Icons.mic_off),
+          color: Colors.white,
+          iconSize: 32.0,
+        ),
+        IconButton(
+          onPressed: onCameraToggle,
+          icon: const Icon(Icons.switch_video),
           color: Colors.white,
           iconSize: 32.0,
         ),
